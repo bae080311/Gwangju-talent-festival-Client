@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
@@ -18,6 +18,7 @@ async function handleRequest(request: NextRequest): Promise<NextResponse> {
     const options: RequestInit = {
       method,
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
     };
 
     if (isBodyRequired) {

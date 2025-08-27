@@ -1,7 +1,7 @@
-import { signInSchema } from "@/entities/user/model/schema";
+import { signinSchema, SignInFormValues, Role } from "@/entities/user/model/schema";
 import { authFormState } from "@/entities/user/lib/authFormState";
-import { SignInFormValues } from "@/entities/user/model/schema";
-import { toast } from "sonner";
+import { signin } from "@/entities/user/api/signin";
+import { setTokens } from "@/shared/utils/auth";
 
 export const handleSigninFormSubmit = async (
   _previousState: authFormState,
@@ -12,23 +12,50 @@ export const handleSigninFormSubmit = async (
     password: formData.get("password")?.toString() || "",
   };
 
-  const result = signInSchema.safeParse(values);
-  const isValid = result.success;
-
-  if (!isValid) {
-    result.error.errors.forEach(err => toast.error(err.message));
+  const result = signinSchema.safeParse(values);
+  if (!result.success) {
     return {
       values,
       isValid: false,
       submitted: true,
+      isLoading: false,
+      error: result.error.errors.map(e => e.message),
     };
   }
 
-  toast.success("로그인 성공");
+  try {
+    const requestData = {
+      phone_number: values.phoneNumber,
+      password: values.password,
+    };
 
-  return {
-    values,
-    isValid: true,
-    submitted: true,
-  };
+    const response = await signin(requestData);
+
+    setTokens(
+      response.access_token,
+      response.access_token_expired_at,
+      response.refresh_token,
+      response.refresh_token_expired_at,
+    );
+
+    document.cookie = `role=${response.role as Role}; path=/;`;
+
+    return {
+      values,
+      isValid: true,
+      submitted: true,
+      isLoading: false,
+      shouldRedirect: true,
+      redirectTo: "/home",
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "로그인에 실패했습니다.";
+    return {
+      values,
+      isValid: false,
+      submitted: true,
+      isLoading: false,
+      error: [message],
+    };
+  }
 };

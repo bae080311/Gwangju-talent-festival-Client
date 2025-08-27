@@ -2,20 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 
 type ApiMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export async function apiHandler(
   request: NextRequest,
   endpoint: string,
   method: ApiMethod = "POST",
   successStatus: number = 200,
+  additionalHeaders?: Record<string, string>
 ) {
   try {
-    const body = method !== "GET" ? await request.json() : null;
-    const url = `${process.env.NEXT_PUBLIC_BASE_URL}${endpoint}`;
+    let body = null;
+    if (method !== "GET") {
+      try {
+        body = await request.json();
+      } catch {
+        console.log("No body or invalid JSON in request");
+      }
+    }
+    
+    const url = `${BASE_URL}${endpoint}`;
 
     const options: RequestInit = {
       method,
       headers: {
         "Content-Type": "application/json",
+        ...additionalHeaders,
       },
     };
 
@@ -24,7 +36,17 @@ export async function apiHandler(
     }
 
     const response = await fetch(url, options);
-    const data = await response.json();
+
+    let data = {};
+    const responseText = await response.text();
+
+    if (responseText.trim()) {
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        data = { message: responseText };
+      }
+    }
 
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status });
