@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-// import { publicIn18, ticketOpenDate, festivalDate, publicIn27 } from "@/shared/config/authConfig";
+import { publicPages, ticketOpenDate, festivalDate, publicIn18, publicIn27, performerTicketOpenDate } from "@/shared/config/authConfig";
 
 export const config = {
   matcher: [
@@ -38,23 +38,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/home", request.url));
   }
 
-  // if (publicIn18.includes(pathname) && new Date() < ticketOpenDate) {
-  //   return NextResponse.redirect(new URL("/home", request.url));
-  // }
+  if (publicIn18.includes(pathname)) {
+    const currentDate = new Date();
+    
+    if (currentDate < (role === "ROLE_PERFORMER" ? performerTicketOpenDate : ticketOpenDate)) {
+      return NextResponse.redirect(new URL("/home", request.url));
+    }
+  }
 
-  // if (publicIn27.includes(pathname) && new Date() < festivalDate) {
-  //   return NextResponse.redirect(new URL("/home", request.url));
-  // }
+  if (publicIn27.includes(pathname) && new Date() < festivalDate) {
+    return NextResponse.redirect(new URL("/home", request.url));
+  }
 
-  // if (
-  //   !pathname.startsWith("/api") &&
-  //   !pathname.startsWith("/test") &&
-  //   !publicPages.includes(pathname) &&
-  //   !accessToken &&
-  //   !refreshToken
-  // ) {
-  //   return NextResponse.redirect(new URL("/home", request.url));
-  // }
+  if (
+    !pathname.startsWith("/api") &&
+    !pathname.startsWith("/test") &&
+    !publicPages.includes(pathname) &&
+    !accessToken &&
+    !refreshToken
+  ) {
+    return NextResponse.redirect(new URL("/home", request.url));
+  }
 
   return NextResponse.next();
 }
