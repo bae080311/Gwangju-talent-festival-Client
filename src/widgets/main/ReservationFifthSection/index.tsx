@@ -8,8 +8,6 @@ import Button from "@/shared/ui/Button";
 import { redirect } from "next/navigation";
 import { ticketOpenDate, performerTicketOpenDate } from "@/shared/config/authConfig";
 import { useMySeat } from "@/entities/booking/lib/useMySeat";
-import { toast } from "sonner";
-import { stringifyError } from "next/dist/shared/lib/utils";
 import { getTokenFromCookie } from "@/shared/utils/auth";
 
 const formatDateLeft = (timeLeft: number) => {
@@ -24,18 +22,14 @@ const formatDateLeft = (timeLeft: number) => {
       return `${String(Math.floor(timeLeft / HOUR)).padStart(2, "0")}시간 후`;
     }
   } else {
-    return `D-${Math.floor(timeLeft / DAY)}`;
+    return `D-${Math.round(timeLeft / DAY)}`;
   }
 };
 
 const ReservationFifthSection = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const { data: mySeat, error } = useMySeat();
-
-  if (error && !error.message.includes("예매된 좌석이 없습니다")) {
-    toast.error(stringifyError(error));
-  }
+  const { data: mySeat } = useMySeat();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -47,15 +41,20 @@ const ReservationFifthSection = () => {
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const relevantTicketOpenDate = userRole === "ROLE_PERFORMER" ? performerTicketOpenDate : ticketOpenDate;
+      const relevantTicketOpenDate = (userRole === "ROLE_PERFORMER") ? performerTicketOpenDate : ticketOpenDate;
       const difference = relevantTicketOpenDate.getTime() - now.getTime();
       setTimeLeft(difference > 0 ? difference : 0);
     };
 
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
+    if (userRole !== null) {
+      calculateTimeLeft();
+      const timer = setInterval(calculateTimeLeft, 1000);
+      return () => clearInterval(timer);
+    } else {
+      const now = new Date();
+      const difference = ticketOpenDate.getTime() - now.getTime();
+      setTimeLeft(difference > 0 ? difference : 0);
+    }
   }, [userRole]);
 
   return (
@@ -114,7 +113,7 @@ const ReservationFifthSection = () => {
           <div className={cn("flex justify-center gap-4 items-center")}>
             <span className={cn("text-body2r mobile:text-caption2r")}>티켓오픈</span>
             <span className={cn("text-body2r text-gray-500 mobile:text-caption2r")}>
-              {(userRole === "ROLE_PERFORMER" ? performerTicketOpenDate : ticketOpenDate).toLocaleString("ko-KR", {
+              {((userRole === "ROLE_PERFORMER") ? performerTicketOpenDate : ticketOpenDate).toLocaleString("ko-KR", {
                 year: "numeric",
                 month: "2-digit",
                 day: "2-digit",
