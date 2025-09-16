@@ -12,10 +12,26 @@ export interface SeatGridProps {
   layout: SeatLayout | null;
   selectedSeat: Seat | null;
   onSeatSelect: (seat: Seat | null) => void;
+  mySeat?: Seat | null;
+  allSeats?: Seat[] | null;
   className?: string;
+  selectedSeats?: Seat[];
+  isSeatSelected?: (seat: Seat) => boolean;
+  isPerformerMode?: boolean;
+  myAllSeats?: Seat[];
 }
 
-export const SeatGrid = memo<SeatGridProps>(({ layout, selectedSeat, onSeatSelect, className }) => {
+export const SeatGrid = memo<SeatGridProps>(({ 
+  layout, 
+  selectedSeat, 
+  onSeatSelect, 
+  mySeat, 
+  allSeats, 
+  className,
+  isSeatSelected,
+  isPerformerMode = false,
+  myAllSeats
+}) => {
   const queryClient = useQueryClient();
 
   const handleSeatSelect = useCallback(
@@ -56,6 +72,24 @@ export const SeatGrid = memo<SeatGridProps>(({ layout, selectedSeat, onSeatSelec
     return [sectionsRow1, sectionsRow2];
   }, []);
 
+  const getSeatSelectedState = useCallback((seat: Seat): boolean => {
+      if (!seat) return false;
+  
+      if (mySeat) {
+        if (myAllSeats && myAllSeats.length > 1) {
+          return myAllSeats.some((s: Seat) => s.seatNumber === seat.seatNumber && s.section === seat.section);
+        }
+        return mySeat.seatNumber === seat.seatNumber && mySeat.section === seat.section;
+      }
+      
+      if (isPerformerMode && typeof isSeatSelected === "function") {
+        return isSeatSelected(seat) === true;
+      }
+      return selectedSeat?.seatNumber === seat.seatNumber && selectedSeat?.section === seat.section;
+    },
+    [mySeat, myAllSeats, isPerformerMode, isSeatSelected, selectedSeat],
+  );
+  
   const renderSingleSectionGrid = () => (
     <div className="min-w-max flex flex-col justify-start">
       {seatGrid.map((row, rowIndex) => (
@@ -65,11 +99,8 @@ export const SeatGrid = memo<SeatGridProps>(({ layout, selectedSeat, onSeatSelec
               {seat ? (
                 <SeatItem
                   seat={seat}
-                  isSelected={
-                    selectedSeat?.seatNumber === seat.seatNumber &&
-                    selectedSeat?.section === seat.section
-                  }
-                  onSelect={handleSeatSelect}
+                  isSelected={getSeatSelectedState(seat)}
+                  onSelect={mySeat ? () => {} : handleSeatSelect}
                 />
               ) : (
                 <div className="w-5 h-5" />
@@ -83,11 +114,12 @@ export const SeatGrid = memo<SeatGridProps>(({ layout, selectedSeat, onSeatSelec
 
   const renderSectionMiniGrid = (section: (typeof SECTIONS)[number]) => {
     const cachedSeats = queryClient.getQueryData<Seat[]>(seatQueryKeys.seatState(section));
+    const allSectionSeats = allSeats?.filter(seat => seat.section === section);
     const sectionLayout = getSeatLayout(section);
     const pattern = getSeatPattern(section);
 
     const seatMap = new Map<string, Seat>();
-    const seatsToUse = cachedSeats || sectionLayout.seats;
+    const seatsToUse = allSectionSeats && allSectionSeats.length > 0 ? allSectionSeats : cachedSeats || sectionLayout.seats;
 
     seatsToUse.forEach(seat => {
       seatMap.set(seat.seatNumber, seat);
@@ -105,7 +137,12 @@ export const SeatGrid = memo<SeatGridProps>(({ layout, selectedSeat, onSeatSelec
                 return (
                   <div key={key} className="w-6 h-6">
                     {seat ? (
-                      <div className="w-6 h-6 bg-white cursor-pointer"></div>
+                      <SeatItem
+                        seat={seat}
+                        isSelected={getSeatSelectedState(seat)}
+                        onSelect={mySeat ? () => {} : handleSeatSelect}
+                        className="w-6 h-6 text-transparent"
+                      />
                     ) : (
                       <div className="w-6 h-6"></div>
                     )}

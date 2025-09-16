@@ -6,41 +6,58 @@ import { cn } from "@/shared/utils/cn";
 import { SectionTitle } from "@/shared/ui/SectionTitle";
 import Button from "@/shared/ui/Button";
 import { redirect } from "next/navigation";
-import { ticketOpenDate } from "@/shared/config/authConfig";
+import { ticketOpenDate, performerTicketOpenDate } from "@/shared/config/authConfig";
+import { useMySeat } from "@/entities/booking/lib/useMySeat";
+import { getTokenFromCookie } from "@/shared/utils/auth";
+import { isLoggedIn } from "@/shared/utils/auth";
 
 const formatDateLeft = (timeLeft: number) => {
-  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-
-  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-  if (0 < days && days <= 1) {
-    return `${hours.toString().padStart(2)}시간 후`;
+  const DAY = 1000 * 60 * 60 * 24;
+  const HOUR = 1000 * 60 * 60;
+  const MIN = 1000 * 60;
+  const SEC = 1000;
+  if (timeLeft < DAY) {
+    if (timeLeft < HOUR) {
+      return `${String(Math.floor(timeLeft / MIN)).padStart(2, "0")}분 ${String(Math.floor((timeLeft % MIN) / SEC)).padStart(2, "0")}초 후`;
+    } else {
+      return `${String(Math.floor(timeLeft / HOUR)).padStart(2, "0")}시간 후`;
+    }
+  } else {
+    return `D-${Math.round(timeLeft / DAY)}`;
   }
-  if (0 < hours && hours <= 1) {
-    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-    return `${minutes.toString().padStart(2, "0")}분 ${seconds.toString().padStart(2, "0")}초 후`;
-  }
-
-  return `D-${days}`;
 };
 
 const ReservationFifthSection = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const { data: mySeat } = useMySeat();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = getTokenFromCookie("role");
+      setUserRole(role);
+    }
+  }, []);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
       const now = new Date();
-      const difference = ticketOpenDate.getTime() - now.getTime();
+      const relevantTicketOpenDate = (userRole === "ROLE_PERFORMER") ? performerTicketOpenDate : ticketOpenDate;
+      const difference = relevantTicketOpenDate.getTime() - now.getTime();
       setTimeLeft(difference > 0 ? difference : 0);
     };
 
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
+    if (userRole !== null && isLoggedIn()) {
+      calculateTimeLeft();
+      const timer = setInterval(calculateTimeLeft, 1000);
+      return () => clearInterval(timer);
+    } else {
+      const now = new Date();
+      const difference = ticketOpenDate.getTime() - now.getTime();
+      console.log("else",difference);
+      setTimeLeft(difference > 0 ? difference : 0);
+    }
+  }, [userRole]);
 
   return (
     <section
@@ -87,10 +104,10 @@ const ReservationFifthSection = () => {
               <Button
                 className="w-full"
                 onClick={() => {
-                  redirect("/booking");
+                  redirect(mySeat ? "/booking/my" : "/booking");
                 }}
               >
-                예매하기
+                {mySeat ? "내 좌석 보러가기" : "예매하기"}
               </Button>
             )}
           </p>
@@ -98,7 +115,7 @@ const ReservationFifthSection = () => {
           <div className={cn("flex justify-center gap-4 items-center")}>
             <span className={cn("text-body2r mobile:text-caption2r")}>티켓오픈</span>
             <span className={cn("text-body2r text-gray-500 mobile:text-caption2r")}>
-              {ticketOpenDate.toLocaleString("ko-KR", {
+              {((userRole === "ROLE_PERFORMER") ? performerTicketOpenDate : ticketOpenDate).toLocaleString("ko-KR", {
                 year: "numeric",
                 month: "2-digit",
                 day: "2-digit",
@@ -108,6 +125,9 @@ const ReservationFifthSection = () => {
               })}
             </span>
           </div>
+          <span className={cn("text-body2b text-main-600 mobile:text-caption2b")}>
+            현장에서 실물티켓으로 교환 후 입장 가능합니다.
+          </span>
         </div>
       </div>
     </section>
